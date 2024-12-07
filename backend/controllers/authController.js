@@ -1,97 +1,143 @@
-const User = require("../models/User");
+const express = require("express");
 const jwt = require("jsonwebtoken");
+const User = require("../models/User");
+const dotenv = require("dotenv");
 
-// Generate JWT Token
-const generateToken = userId => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
-};
+dotenv.config();
 
-// User Registration
-exports.registerUser = async (req, res) => {
-  try {
-    const { firstName, lastName, email, password } = req.body;
+const authController = {
+  async register(req, res) {
+    try {
+      const { email, password, name, contact } = req.body;
 
-    // Check if user already exists
-    let existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({
-        error: "User with this email already exists",
+      // Check if user already exists
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+
+      // Create new user with default client role
+      const user = new User({
+        email,
+        password,
+        name,
+        role: "client",
+        contact: contact || {},
       });
-    }
+      await user.save();
 
-    // Create new user
-    const newUser = new User({
-      firstName,
-      lastName,
-      email,
-      password,
-    });
+      // Generate token
+      const token = jwt.sign(
+        {
+          id: user._id,
+          email: user.email,
+          role: user.role,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
 
-    // Save user
-    await newUser.save();
-
-    // Generate token
-    const token = generateToken(newUser._id);
-
-    res.status(201).json({
-      message: "User registered successfully",
-      user: {
-        id: newUser._id,
-        firstName: newUser.firstName,
-        lastName: newUser.lastName,
-        email: newUser.email,
-      },
-      token,
-    });
-  } catch (error) {
-    res.status(500).json({
-      error: "Registration failed",
-      details: error.message,
-    });
-  }
-};
-
-// User Login
-exports.loginUser = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    // Find user and include password for comparison
-    const user = await User.findOne({ email }).select("+password");
-
-    if (!user) {
-      return res.status(401).json({
-        error: "Invalid login credentials",
+      res.status(201).json({
+        user: {
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          contact: user.contact,
+        },
+        token,
       });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ message: "Registration failed", error: error.message });
     }
+  },
 
-    // Check password
-    const isMatch = await user.comparePassword(password);
+  async login(req, res) {
+    try {
+      // Verify JWT_SECRET is set
+      if (!process.env.JWT_SECRET) {
+        console.error("JWT_SECRET is not set");
+        return res.status(500).json({ message: "Server configuration error" });
+      }
 
-    if (!isMatch) {
-      return res.status(401).json({
-        error: "Invalid login credentials",
-      });
+      const { email, password } = req.body;
+
+      // Find user
+      const user = await User.findOne({ email });
+      if (!user) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      // Check password
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      // Generate token
+      try {
+        const token = jwt.sign(
+          {
+            id: user._id,
+            email: user.email,
+            role: user.role,
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: "7d" }
+        );
+
+        res.json({
+          user: {
+            id: user._id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            contact: user.contact,
+          },
+          token,
+        });
+      } catch (tokenError) {
+        console.error("Token generation error:", tokenError);
+        res.status(500).json({
+          message: "Token generation failed",
+          error: tokenError.message,
+        });
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ message: "Login failed", error: error.message });
     }
+  },
 
-    // Generate token
-    const token = generateToken(user._id);
+  // Token validation middleware
+  async validateToken(req, res, next) {
+    try {
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) {
+        return res.status(401).json({ message: "No token provided" });
+      }
 
-    res.json({
-      message: "Login successful",
-      user: {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      // Optional: Fetch user to ensure they still exist and get latest info
+      const user = await User.findById(decoded.id);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      req.user = {
         id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
         email: user.email,
+        name: user.name,
         role: user.role,
-      },
-      token,
-    });
-  } catch (error) {
-    res.status(500).json({
-      error: "Login failed",
-      details: error.message,
-    });
-  }
+      };
+      next();
+    } catch (error) {
+      res.status(401).json({ message: "Invalid token" });
+    }
+  },
 };
+
+module.exports = authController;

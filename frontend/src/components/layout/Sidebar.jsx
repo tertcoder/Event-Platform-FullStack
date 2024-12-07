@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   HomeIcon,
@@ -46,7 +46,7 @@ const Sidebar = () => {
             to="/"
             className="text-2xl font-poppins font-bold text-primary mb-8 block"
           >
-            EventHub
+            MasterEvent
           </Link>
 
           <nav className="space-y-4">

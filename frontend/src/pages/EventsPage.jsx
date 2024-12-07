@@ -1,10 +1,29 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import EventCard from "../components/events/EventCard";
 import { MOCK_EVENTS } from "../utils/mockData";
+import { EventsService } from "../services/EventApi";
 
 const EventsPage = () => {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const fetchedEvents = await EventsService.getAllEvents();
+        console.log(fetchedEvents);
+        setEvents(fetchedEvents.events);
+        setLoading(false);
+      } catch (error) {
+        console.error("Failed to fetch events", error);
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, []);
 
   const categories = [
     "All",
@@ -17,7 +36,7 @@ const EventsPage = () => {
     "Comedy",
   ];
 
-  const filteredEvents = MOCK_EVENTS.filter(
+  const filteredEvents = events.filter(
     event =>
       (selectedCategory === "" ||
         selectedCategory === "All" ||
@@ -25,6 +44,8 @@ const EventsPage = () => {
       (event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         event.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  if (loading) return <div>Loading...</div>;
 
   return (
     <div className="space-y-8">

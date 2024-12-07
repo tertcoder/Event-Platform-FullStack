@@ -37,9 +37,9 @@ const authMiddleware = async (req, res, next) => {
 
 // Middleware to check admin role
 const adminMiddleware = (req, res, next) => {
-  if (req.user.role !== "admin") {
+  if (req.user.role !== "organizer") {
     return res.status(403).json({
-      error: "Access denied. Admin privileges required.",
+      error: "Access denied. Organizer privileges required.",
     });
   }
   next();

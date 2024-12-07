@@ -1,66 +1,49 @@
+const express = require("express");
 const mongoose = require("mongoose");
-const validator = require("validator");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
+// User Model
 const UserSchema = new mongoose.Schema(
   {
-    firstName: {
-      type: String,
-      required: [true, "First name is required"],
-      trim: true,
-    },
-    lastName: {
-      type: String,
-      required: [true, "Last name is required"],
-      trim: true,
-    },
     email: {
       type: String,
-      required: [true, "Email is required"],
+      required: true,
       unique: true,
       lowercase: true,
-      validate: [validator.isEmail, "Invalid email address"],
     },
     password: {
       type: String,
-      required: [true, "Password is required"],
-      minlength: [8, "Password must be at least 8 characters long"],
-      select: false, // Prevent password from being returned in queries
+      required: true,
+    },
+    name: {
+      type: String,
+      required: true,
     },
     role: {
       type: String,
-      enum: ["user", "admin"],
-      default: "user",
+      enum: ["client", "organizer"],
+      default: "client",
     },
-    tickets: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Ticket",
-      },
-    ],
+    // Additional client-specific fields if needed
+    contact: {
+      phone: String,
+      address: String,
+    },
+    tickets: [{ type: mongoose.Schema.Types.ObjectId, ref: "Ticket" }],
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-// Middleware to hash password before saving
+// Hash password before saving
 UserSchema.pre("save", async function (next) {
-  // Only hash the password if it has been modified
-  if (!this.isModified("password")) return next();
-
-  try {
-    // Generate a salt
-    const salt = await bcrypt.genSalt(10);
-    // Hash the password
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
+  if (this.isModified("password")) {
+    this.password = await bcrypt.hash(this.password, 10);
   }
+  next();
 });
 
-// Method to check password
+// Password comparison method
 UserSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };

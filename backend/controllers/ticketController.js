@@ -4,22 +4,19 @@ const User = require("../models/User");
 
 // Purchase tickets for an event
 exports.purchaseTickets = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const { eventId, quantity } = req.body;
-    const userId = req.user._id;
+    const userId = req.body.user.id;
 
     // Find the event
-    const event = await Event.findById(eventId).session(session);
+    const event = await Event.findById(eventId);
     if (!event) {
-      throw new Error("Event not found");
+      return res.status(404).json({ error: "Event not found" });
     }
 
     // Check ticket availability
-    if (!event.isTicketAvailable(quantity)) {
-      throw new Error("Not enough tickets available");
+    if (event.availableTickets < quantity) {
+      return res.status(400).json({ error: "Not enough tickets available" });
     }
 
     // Calculate total price
@@ -31,55 +28,57 @@ exports.purchaseTickets = async (req, res) => {
       user: userId,
       quantity,
       totalPrice,
+      status: "Active", // Adding a default status
     });
 
     // Save ticket
-    await newTicket.save({ session });
+    await newTicket.save();
 
     // Update event available tickets
     event.availableTickets -= quantity;
-    await event.save({ session });
+    await event.save();
 
-    // Update user's tickets
-    await User.findByIdAndUpdate(
-      userId,
-      { $push: { tickets: newTicket._id } },
-      { session }
-    );
-
-    // Commit transaction
-    await session.commitTransaction();
-    session.endSession();
+    // Update user's tickets (optional, depends on your user model)
+    await User.findByIdAndUpdate(userId, { $push: { tickets: newTicket._id } });
 
     res.status(201).json({
       message: "Tickets purchased successfully",
       ticket: newTicket,
     });
   } catch (error) {
-    // Abort transaction
-    await session.abortTransaction();
-    session.endSession();
-
-    res.status(400).json({
+    console.error("Ticket purchase error:", error);
+    res.status(500).json({
       error: "Ticket purchase failed",
       details: error.message,
     });
   }
 };
 
-// Get user's tickets
+// Get user's tickets (simplified version)
 exports.getUserTickets = async (req, res) => {
   try {
-    const tickets = await Ticket.find({ user: req.user._id }).populate(
-      "event",
-      "title date location"
-    );
+    console.log(req);
+    // Option 1: Find tickets by user ID
+    // const tickets = await Ticket.find({ user: req.param.id })
+    //   .populate("event", "title date location")
+    //   .sort({ createdAt: -1 }); // Sort by most recent first
+
+    // Option 2: If you prefer getting tickets directly from user
+    const user = await User.findById(req.param.id).populate({
+      path: "tickets",
+      populate: {
+        path: "event",
+        select: "title date location",
+      },
+    });
+    const tickets = user.tickets;
 
     res.json({
       tickets,
       count: tickets.length,
     });
   } catch (error) {
+    console.error("Get user tickets error:", error);
     res.status(500).json({
       error: "Failed to retrieve tickets",
       details: error.message,
@@ -93,7 +92,7 @@ exports.validateTicket = async (req, res) => {
     const { ticketId } = req.params;
 
     const ticket = await Ticket.findOne({
-      uniqueTicketId: ticketId,
+      _id: ticketId, // Changed from uniqueTicketId to _id
     }).populate("event");
 
     if (!ticket) {
@@ -112,11 +111,12 @@ exports.validateTicket = async (req, res) => {
       message: "Ticket validated successfully",
       event: ticket.event,
       ticketDetails: {
-        id: ticket.uniqueTicketId,
+        id: ticket._id,
         quantity: ticket.quantity,
       },
     });
   } catch (error) {
+    console.error("Ticket validation error:", error);
     res.status(500).json({
       error: "Ticket validation failed",
       details: error.message,

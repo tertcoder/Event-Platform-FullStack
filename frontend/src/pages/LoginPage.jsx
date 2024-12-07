@@ -7,31 +7,48 @@ const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Basic email validation
+  const isValidEmail = email => {
+    const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return re.test(String(email).toLowerCase());
+  };
+
   const handleSubmit = async e => {
     e.preventDefault();
     setError("");
 
+    // Add client-side validations
+    if (!isValidEmail(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long");
+      return;
+    }
+
+    setIsLoading(true);
+
     try {
-      // Mock login - in real app, this would be an API call
-      const mockUserData = {
-        id: "123",
-        name: "John Doe",
-        email: email,
-      };
+      await login(email, password);
 
-      // Simulate successful login
-      login(mockUserData, "mock-token");
-
-      // Redirect to previous page or home
-      const from = location.state?.from || "/";
-      navigate(from);
+      const from = location.state?.from || "/profile";
+      navigate(from, { replace: true });
     } catch (err) {
-      setError("Invalid email or password");
+      setError(
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          "Login failed. Please try again."
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -42,7 +59,9 @@ const LoginPage = () => {
           <h2 className="text-3xl font-poppins font-bold text-primary">
             Welcome Back
           </h2>
-          <p className="text-gray-600 mt-2">Log in to your EventHub account</p>
+          <p className="text-gray-600 mt-2">
+            Log in to your MasterEvent account
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -85,9 +104,10 @@ const LoginPage = () => {
 
           <button
             type="submit"
-            className="w-full bg-secondary text-white py-3 rounded-md hover:bg-opacity-90 transition-colors font-semibold"
+            disabled={isLoading}
+            className="w-full bg-secondary text-white py-3 rounded-md hover:bg-opacity-90 transition-colors font-semibold disabled:opacity-50"
           >
-            Log In
+            {isLoading ? "Logging in..." : "Log In"}
           </button>
         </form>
 

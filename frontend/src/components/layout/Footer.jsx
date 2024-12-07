@@ -7,7 +7,9 @@ const Footer = () => {
         <div className="grid md:grid-cols-4 gap-8">
           {/* Company Info */}
           <div>
-            <h3 className="text-2xl font-poppins font-bold mb-4">EventHub</h3>
+            <h3 className="text-2xl font-poppins font-bold mb-4">
+              MasterEvent
+            </h3>
             <p className="text-gray-300">
               Discover and book amazing events from concerts to conferences.
             </p>

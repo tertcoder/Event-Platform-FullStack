@@ -1,27 +1,30 @@
+import { useState, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { MOCK_EVENTS } from "../utils/mockData";
 import { TicketIcon, UserIcon, MailIcon } from "@heroicons/react/solid";
+import { TicketsService } from "../services/TicketApi";
+import { QRCodeSVG } from "qrcode.react";
+// import { } from "qrcode.react";
 
 const ProfilePage = () => {
   const { user, logout } = useAuth();
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock ticket purchases - in real app, this would come from backend
-  const mockTickets = [
-    {
-      id: "1",
-      event: MOCK_EVENTS[0],
-      quantity: 2,
-      purchaseDate: new Date(),
-      totalPrice: MOCK_EVENTS[0].ticketPrice * 2,
-    },
-    {
-      id: "2",
-      event: MOCK_EVENTS[1],
-      quantity: 1,
-      purchaseDate: new Date(),
-      totalPrice: MOCK_EVENTS[1].ticketPrice,
-    },
-  ];
+  useEffect(() => {
+    const fetchTickets = async () => {
+      try {
+        console.log("Nahaa...", user);
+        const ticketData = await TicketsService.getUserTickets(user);
+        setTickets(ticketData.tickets);
+      } catch (error) {
+        console.error("Failed to fetch tickets", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTickets();
+  }, []);
 
   return (
     <div className="container mx-auto py-8">
@@ -66,15 +69,19 @@ const ProfilePage = () => {
             My Tickets
           </h3>
 
-          {mockTickets.length === 0 ? (
+          {loading ? (
+            <div className="text-center text-gray-500 py-8">
+              Loading tickets...
+            </div>
+          ) : tickets.length === 0 ? (
             <div className="text-center text-gray-500 py-8">
               You have no purchased tickets
             </div>
           ) : (
             <div className="space-y-4">
-              {mockTickets.map(ticket => (
+              {tickets.map(ticket => (
                 <div
-                  key={ticket.id}
+                  key={ticket._id}
                   className="flex items-center bg-gray-100 p-4 rounded-lg"
                 >
                   <img
@@ -97,6 +104,37 @@ const ProfilePage = () => {
                       <span className="font-bold text-secondary">
                         ${ticket.totalPrice.toFixed(2)}
                       </span>
+                    </div>
+                    {/* QR Code Display */}
+                    <div className="mt-4 flex justify-between items-center">
+                      <QRCodeSVG
+                        value={ticket.uniqueTicketId}
+                        size={100}
+                        level={"M"}
+                      />
+                      <div>
+                        <p className="text-sm text-gray-600">Ticket ID:</p>
+                        <p className="font-mono text-xs">
+                          {ticket.uniqueTicketId}
+                        </p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Status:
+                          <span
+                            className={`
+                            ml-2 px-2 py-1 rounded-full text-xs
+                            ${
+                              ticket.status === "Active"
+                                ? "bg-green-100 text-green-800"
+                                : ticket.status === "Used"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-gray-100 text-gray-800"
+                            }
+                          `}
+                          >
+                            {ticket.status}
+                          </span>
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>

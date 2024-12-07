@@ -1,8 +1,31 @@
 import { Link } from "react-router-dom";
 import EventCard from "../components/events/EventCard";
 import { MOCK_EVENTS } from "../utils/mockData";
+import { EventsService } from "../services/EventApi";
+import { useEffect, useState } from "react";
 
 const HomePage = () => {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const fetchedEvents = await EventsService.getAllEvents();
+        console.log(fetchedEvents);
+        setEvents(fetchedEvents.events.slice(0, 3));
+        setLoading(false);
+      } catch (error) {
+        console.error("Failed to fetch events", error);
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, []);
+
+  if (loading) return <div>Loading...</div>;
+
   return (
     <div className="space-y-8">
       <section className="text-center bg-gradient-to-r from-primary to-secondary text-white py-16 rounded-lg">
@@ -25,7 +48,7 @@ const HomePage = () => {
           Upcoming Events
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {MOCK_EVENTS.slice(0, 3).map(event => (
+          {events.slice(0, 3).map(event => (
             <EventCard key={event._id} event={event} />
           ))}
         </div>

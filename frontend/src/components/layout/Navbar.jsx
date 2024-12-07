@@ -17,7 +17,7 @@ const Navbar = () => {
           to="/"
           className="text-2xl font-poppins font-bold text-primary flex items-center"
         >
-          EventHub
+          MasterEvent
         </Link>
 
         <div className="flex items-center space-x-4">
